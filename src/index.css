@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Driftdock desktop: transparent window, the dock is the only thing drawn. */
+:root { --accent: #ffa94d; color-scheme: dark; }
+html, body, #root { margin: 0; height: 100%; background: transparent; overflow: hidden; font-family: Onest, "Segoe UI", system-ui, sans-serif; }
+* { min-width: 0; }
+::selection { background: var(--accent); color: #16120e; }
+/* browser preview only: fake desktop behind the dock */
+.preview-desk { background: radial-gradient(120% 90% at 30% 20%, #3a2a4a, #1a1424 45%, #0c0a10); }
+::-webkit-scrollbar { width: 8px; height: 8px } ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.15); border-radius: 8px }
+@keyframes td { 0%,100% { opacity: .3; transform: translateY(0) } 50% { opacity: 1; transform: translateY(-4px) } }
+.typing-dot { animation: td .9s ease-in-out infinite; }
+
+/* entrances */
+@keyframes fadeUp { from { opacity: 0; transform: translateY(10px) } to { opacity: 1; transform: none } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(24px) scale(.97) } to { opacity: 1; transform: none } }
+@keyframes popIn { from { opacity: 0; transform: scale(.85) } to { opacity: 1; transform: none } }
+@keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+.fade-up { animation: fadeUp .35s cubic-bezier(.2,.8,.2,1) both; }
+.slide-up { animation: slideUp .38s cubic-bezier(.2,.9,.25,1) both; }
+.pop-in { animation: popIn .4s cubic-bezier(.2,.9,.3,1.2) both; }
+.fade-in { animation: fadeIn .25s ease both; }
+
+@keyframes bounce { 0%,100% { transform: translateY(0) } 20% { transform: translateY(-22px) } 40% { transform: translateY(0) } 60% { transform: translateY(-12px) } 80% { transform: translateY(0) } }
+.app-bounce { animation: bounce 1.2s cubic-bezier(.3,.7,.4,1); }
+@keyframes dot { 0% { transform: translateY(0); opacity: 1 } 80% { transform: translateY(10px); opacity: 0 } 100% { opacity: 0 } }
+
+
+@keyframes td { 0%,100% { opacity: .3; transform: translateY(0) } 50% { opacity: 1; transform: translateY(-4px) } }
+.typing-dot { animation: td .9s ease-in-out infinite; }
+.ring-anim { transition: stroke-dashoffset 1.2s cubic-bezier(.2,.8,.2,1), stroke .4s; }
+
+/* range slider */
+input[type=range].vol { -webkit-appearance: none; appearance: none; height: 6px; border-radius: 99px; background: linear-gradient(90deg, var(--accent) var(--v), rgba(127,140,170,.35) var(--v)); outline: none; cursor: pointer; }
+input[type=range].vol::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 6px rgba(0,0,0,.4); }
+input[type=range].vol::-moz-range-thumb { width: 16px; height: 16px; border: 0; border-radius: 50%; background: #fff; }
+input[type=range].vol:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  
+}
