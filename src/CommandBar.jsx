@@ -5,8 +5,9 @@ import { CAPTIONS, EXAMPLES, run } from './engine.js'
 import { useStore } from './store.jsx'
 import { call, fileSrc } from './native.js'
 import { panel, WeatherCard } from './Panels.jsx'
+import { startTimer, stopTimer } from './timer.js'
 
-const EX_ICON = { vsc: 'search', holiday: 'folder', '12*8.5': 'calc', '100 usd to idr': 'swap', 'time in tokyo': 'globe', weather: 'sun', 'volume 40': 'vol', next: 'next', 'dark mode': 'dark', 'make it teal': 'palette', 'corner radius 100': 'sliders', 'wifi settings': 'wifi' }
+const EX_ICON = { 'timer 10m': 'timer', pomodoro: 'focus', vsc: 'search', holiday: 'folder', '12*8.5': 'calc', '100 usd to idr': 'swap', 'time in tokyo': 'globe', weather: 'sun', 'volume 40': 'vol', next: 'next', 'dark mode': 'dark', 'make it teal': 'palette', 'corner radius 100': 'sliders', 'wifi settings': 'wifi' }
 const fmtSize = (b) => (b > 1e9 ? `${(b / 1e9).toFixed(1)} GB` : b > 1e6 ? `${(b / 1e6).toFixed(1)} MB` : b > 1e3 ? `${Math.round(b / 1e3)} KB` : b ? `${b} B` : '')
 
 function FileThumb({ f }) {
@@ -54,7 +55,8 @@ export default function CommandBar({ onClose, weather }) {
     if (r.action) { patch(r.action); setDone(true); return }
     if (r.type === 'app') { await launch(r.apps[i] || r.apps[0]); onClose(); return }
     if (r.type === 'files') { openFile(r.files[i] || r.files[0], e?.ctrlKey); return }
-    if (r.type === 'media') { await media(r.media); setDone(true); return }
+    if (r.type === 'media') { await (r.media ? media(r.media) : call('set_volume', { level: r.volume })); setDone(true); return }
+    if (r.type === 'timer') { r.timer ? startTimer(r.timer.minutes, r.timer.mode) : stopTimer(); setDone(true); return }
     if (r.type === 'theme') { try { await call('set_dark_mode', { dark: r.theme }); setDone(true) } catch { notify("Couldn't change the theme") } return }
     if (r.type === 'setting') { await launch({ name: r.title, path: r.uri }); onClose(); return }
     if (['calc', 'convert', 'time'].includes(r.type)) copy(r.title)
@@ -67,7 +69,7 @@ export default function CommandBar({ onClose, weather }) {
     else if (e.key === 'Enter') { e.preventDefault(); execute(res, sel, e) }
   }
 
-  const doneLabel = { accent: 'Applied to your dock', radius: 'Applied to your dock', size: 'Applied to your dock', reset: 'Done', media: 'Sent to Windows', theme: 'Windows theme changed' }
+  const doneLabel = { accent: 'Applied to your dock', radius: 'Applied to your dock', size: 'Applied to your dock', reset: 'Done', media: 'Sent to Windows', theme: 'Windows theme changed', timer: 'Running in the notch' }
 
   return (
     <div className={`${panel} w-[640px] max-w-full overflow-hidden`}>
@@ -94,11 +96,11 @@ export default function CommandBar({ onClose, weather }) {
           </div>
         )}
 
-        {(res.action || ['media', 'theme'].includes(res.type)) && (
+        {(res.action || ['media', 'theme', 'timer'].includes(res.type)) && (
           <div className="fade-up flex items-center gap-4 p-4 rounded-2xl bg-white/[.06]">
             <div className="w-16 h-16 grid place-items-center shrink-0 transition-all duration-500"
               style={{ borderRadius: res.type === 'radius' ? `${res.action.radius / 2}%` : 18, background: res.color || 'var(--accent)', transform: res.type === 'size' ? `scale(${res.action.size / 100})` : undefined }}>
-              <I n={res.type === 'accent' ? 'palette' : res.type === 'media' ? 'vol' : res.type === 'theme' ? 'dark' : 'sliders'} className="w-7 h-7" />
+              <I n={res.type === 'accent' ? 'palette' : res.type === 'media' ? 'vol' : res.type === 'theme' ? 'dark' : res.type === 'timer' ? 'timer' : 'sliders'} className="w-7 h-7" />
             </div>
             <div className="min-w-0">
               <div className="text-[23px] font-extrabold leading-tight">{res.title}</div>

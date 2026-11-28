@@ -102,9 +102,9 @@ export function QuickPanel({ onClose }) {
 }
 
 /* ---------------- Calendar (local agenda) ---------------- */
-const KIND = { meeting: ['#60a5fa', 'Meeting'], payout: ['#34d399', 'Payout'], renewal: ['#f472b6', 'Renewal'], other: ['#fbbf24', 'Other'] }
-const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-const occurs = (e, d) => {
+export const KIND = { meeting: ['#60a5fa', 'Meeting'], payout: ['#34d399', 'Payout'], renewal: ['#f472b6', 'Renewal'], other: ['#fbbf24', 'Other'] }
+export const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+export const occurs = (e, d) => {
   const [y, m, day] = e.date.split('-').map(Number)
   if (iso(d) === e.date) return true
   if (d < new Date(y, m - 1, day)) return false
@@ -333,6 +333,7 @@ export function SettingsPanel() {
         <Toggle on={s.widgets.volume} set={w('volume')} label="Volume buttons" />
         <Toggle on={s.widgets.session} set={w('session')} label="Session time" />
         <Toggle on={s.widgets.weather} set={w('weather')} label="Weather" />
+        <Toggle on={s.notch !== false} set={(v) => { patch({ notch: v }); call('set_notch', { enabled: v }).catch(() => {}) }} label="Notch" sub="Music, timers and alerts at the top of the screen" />
         <Toggle on={auto} set={async (v) => { try { await autostart(v); setAuto(v) } catch { notify("Couldn't change startup") } }} label="Start with Windows" />
       </div>
       <div className="border-t border-white/10 mt-2 pt-3 space-y-2">

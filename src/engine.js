@@ -49,7 +49,7 @@ export const CAPTIONS = {
   accent: 'Restyled in plain words.', radius: 'Restyled in plain words.', size: 'Restyled in plain words.', reset: 'Back to the original look.',
   app: 'Any app, from a few letters.', files: 'Your files, with previews.', calc: 'Answers while you type.',
   convert: 'Money and units, converted.', time: 'Any city, right now.', weather: 'Live weather, in the bar.',
-  media: 'Music and volume, by command.', setting: 'Windows settings, one jump away.', theme: 'Light or dark, system‑wide.',
+  media: 'Music and volume, by command.', timer: 'Counts down in the notch.', setting: 'Windows settings, one jump away.', theme: 'Light or dark, system‑wide.',
   help: 'Type an app, a file, a sum, or a command.', none: 'Nothing matched. Try one of the examples.', loading: 'Looking…',
 }
 
@@ -133,9 +133,19 @@ export function run(input, ctx = {}) {
   if (/^(play|pause|play\/pause|resume)$/.test(q)) return { type: 'media', title: 'Play / pause', media: ['play'] }
   if (/^(next|skip|next (song|track))$/.test(q)) return { type: 'media', title: 'Next track', media: ['next'] }
   if (/^(prev|previous|back)( (song|track))?$/.test(q)) return { type: 'media', title: 'Previous track', media: ['prev'] }
-  if (/^(mute|unmute)$/.test(q)) return { type: 'media', title: 'Mute toggled', media: ['mute'] }
+  if (/^(mute|unmute)$/.test(q)) return { type: 'media', title: 'Mute toggled', volume: null }
   m = q.match(/^(?:volume|vol)\s+(\d{1,3})%?$/)
-  if (m) { const v = Math.min(100, +m[1]); return { type: 'media', title: `Volume ${v}%`, media: ['down', 50, 'up', Math.round(v / 2)] } }
+  if (m) { const v = Math.min(100, +m[1]); return { type: 'media', title: `Volume ${v}%`, volume: v } }
+
+  // timers + pomodoro (shown live in the notch)
+  if (/^(pomodoro|focus|fokus)( mode)?$/.test(q)) return { type: 'timer', title: 'Focus 25 min, then a 5 min break', timer: { minutes: 25, mode: 'focus' } }
+  if (/^(stop|cancel|clear|end) (timer|pomodoro|focus)$/.test(q)) return { type: 'timer', title: 'Timer stopped', timer: null }
+  m = q.match(/^(?:timer|set timer|countdown)\s+(\d{1,3}(?:[.,]\d)?)\s*(s|sec|secs|seconds?|m|min|mins|minutes?|menit|h|hr|hours?|jam)?$/) || q.match(/^(\d{1,3})\s*(m|min|mins|minutes?|menit) timer$/)
+  if (m) {
+    const n = parseFloat(m[1].replace(',', '.')); const u = (m[2] || 'm')[0]
+    const minutes = u === 's' ? n / 60 : u === 'h' || u === 'j' ? n * 60 : n
+    if (minutes > 0 && minutes <= 24 * 60) return { type: 'timer', title: `Timer: ${m[1]}${u === 's' ? 's' : u === 'h' || u === 'j' ? 'h' : ' min'}`, timer: { minutes, mode: 'timer' } }
+  }
   m = q.match(/^(?:volume|vol)\s+(up|down)$/)
   if (m) return { type: 'media', title: `Volume ${m[1]}`, media: [m[1], 5] }
 
@@ -193,4 +203,4 @@ export function run(input, ctx = {}) {
   return { type: 'none' }
 }
 
-export const EXAMPLES = ['vsc', 'holiday', '12*8.5', '100 usd to idr', 'time in tokyo', 'weather', 'volume 40', 'next', 'dark mode', 'make it teal', 'corner radius 100', 'wifi settings']
+export const EXAMPLES = ['vsc', 'holiday', '12*8.5', '100 usd to idr', 'time in tokyo', 'weather', 'volume 40', 'next', 'timer 10m', 'pomodoro', 'make it teal', 'wifi settings']

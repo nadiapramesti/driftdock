@@ -16,6 +16,8 @@ use tauri_plugin_opener::OpenerExt;
 
 #[cfg(windows)]
 mod win;
+#[cfg(windows)]
+mod sys;
 
 const UA: &str = "Driftdock/0.1 (+https://driftdock.xyz)";
 
@@ -27,6 +29,8 @@ struct Shared {
     indexing: Mutex<bool>,
     ps: Mutex<Option<(Child, ChildStdin)>>,
     user_hidden: Mutex<bool>,
+    snapshot: Mutex<serde_json::Value>,
+    notch_off: Mutex<bool>,
 }
 type S<'a> = State<'a, Arc<Shared>>;
 
@@ -378,18 +382,125 @@ async fn rates() -> Result<serde_json::Value, String> {
 /// Width/height are CSS pixels. The window sits centred on the bottom edge of the
 /// monitor's work area (so it never covers the Windows taskbar if that is still visible).
 #[tauri::command]
-fn set_layout(window: WebviewWindow, width: f64, height: f64, gap: Option<f64>) -> Result<(), String> {
+fn set_layout(window: WebviewWindow, width: f64, height: f64, gap: Option<f64>, anchor: Option<String>) -> Result<(), String> {
     let mon = window.current_monitor().map_err(|e| e.to_string())?.or(window.primary_monitor().map_err(|e| e.to_string())?).ok_or("no monitor")?;
     let sf = mon.scale_factor();
     let area = mon.work_area();
     let w = (width * sf).round() as u32;
     let h = (height * sf).round() as u32;
     let g = (gap.unwrap_or(8.0) * sf).round() as i32;
-    let x = area.position.x + (area.size.width as i32 - w as i32) / 2;
-    let y = area.position.y + area.size.height as i32 - h as i32 - g;
+    let (x, y) = if anchor.as_deref() == Some("top") {
+        // the notch hangs from the very top edge of the screen, centred on the monitor
+        let (p, sz) = (mon.position(), mon.size());
+        (p.x + (sz.width as i32 - w as i32) / 2, p.y + g)
+    } else {
+        (area.position.x + (area.size.width as i32 - w as i32) / 2, area.position.y + area.size.height as i32 - h as i32 - g)
+    };
     window.set_size(PhysicalSize::new(w, h)).map_err(|e| e.to_string())?;
     window.set_position(PhysicalPosition::new(x, y)).map_err(|e| e.to_string())?;
     Ok(())
+}
+
+// ---------------------------------------------------------------- media, volume, notch
+
+#[tauri::command]
+fn get_sys(shared: S) -> serde_json::Value {
+    shared.snapshot.lock().unwrap().clone()
+}
+
+/// play | next | prev — asks the player directly, falls back to media keys.
+#[tauri::command]
+fn media_control(action: String, shared: S) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        let a = action.clone();
+        let ok = std::thread::spawn(move || {
+            sys::init_thread();
+            sys::control(&a)
+        })
+        .join()
+        .unwrap_or(false);
+        if ok {
+            return Ok(());
+        }
+    }
+    let code = match action.as_str() {
+        "next" => 176,
+        "prev" => 177,
+        _ => 179,
+    };
+    ps_send(&shared, &format!("$w.SendKeys([char]{code})"))
+}
+
+/// level 0..=100, or None to toggle mute
+#[tauri::command]
+fn set_volume(level: Option<f32>, shared: S) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        let ok = std::thread::spawn(move || {
+            sys::init_thread();
+            match level {
+                Some(l) => sys::set_volume(l / 100.0),
+                None => sys::toggle_mute(),
+            }
+        })
+        .join()
+        .unwrap_or(false);
+        if ok {
+            return Ok(());
+        }
+    }
+    match level {
+        None => ps_send(&shared, "$w.SendKeys([char]173)"),
+        Some(l) => ps_send(&shared, &format!("1..50 | % {{ $w.SendKeys([char]174) }}; 1..{} | % {{ $w.SendKeys([char]175) }}", (l / 2.0).round().max(0.0) as u32)),
+    }
+}
+
+#[tauri::command]
+fn set_notch(app: AppHandle, enabled: bool, shared: S) {
+    *shared.notch_off.lock().unwrap() = !enabled;
+    if let Some(w) = app.get_webview_window("notch") {
+        let _ = if enabled { w.show() } else { w.hide() };
+    }
+}
+
+#[cfg(windows)]
+fn watch_system(app: AppHandle, shared: Arc<Shared>) {
+    use base64::Engine as _;
+    std::thread::spawn(move || {
+        sys::init_thread();
+        let mut last_title = String::new();
+        let mut art: Option<String> = None;
+        let mut last = serde_json::Value::Null;
+        loop {
+            let media = sys::media();
+            if let Some(m) = &media {
+                let key = format!("{}|{}", m.title, m.artist);
+                if key != last_title {
+                    last_title = key;
+                    art = sys::thumbnail().map(|b| {
+                        let mime = if b.starts_with(&[0x89, b'P', b'N', b'G']) { "image/png" } else { "image/jpeg" };
+                        format!("data:{mime};base64,{}", base64::engine::general_purpose::STANDARD.encode(b))
+                    });
+                }
+            } else {
+                last_title.clear();
+                art = None;
+            }
+            let (vol, muted) = sys::volume().unwrap_or((0, false));
+            let (battery, charging) = sys::power();
+            let snap = serde_json::json!({
+                "media": media.as_ref().map(|m| serde_json::json!({ "title": m.title, "artist": m.artist, "app": m.app, "playing": m.playing, "art": art })),
+                "volume": vol, "muted": muted, "battery": battery, "charging": charging,
+            });
+            if snap != last {
+                last = snap.clone();
+                *shared.snapshot.lock().unwrap() = snap.clone();
+                let _ = app.emit("sys", snap);
+            }
+            std::thread::sleep(Duration::from_millis(700));
+        }
+    });
 }
 
 #[tauri::command]
@@ -479,6 +590,8 @@ pub fn run() {
             }
 
             build_index(shared.clone());
+            #[cfg(windows)]
+            watch_system(app.handle().clone(), shared.clone());
 
             // rescan files every 30 minutes; hide the dock over fullscreen apps (Windows only)
             let sh2 = shared.clone();
@@ -494,16 +607,25 @@ pub fn run() {
                     }
                     #[cfg(windows)]
                     if let Some(w) = handle.get_webview_window("main") {
-                        if *sh2.user_hidden.lock().unwrap() {
-                            continue;
-                        }
                         let fs = win::foreground_is_fullscreen(&w);
-                        if fs && !hidden_for_fs {
-                            let _ = w.hide();
-                            hidden_for_fs = true;
-                        } else if !fs && hidden_for_fs {
-                            let _ = w.show();
-                            hidden_for_fs = false;
+                        if fs != hidden_for_fs {
+                            hidden_for_fs = fs;
+                            let notch = handle.get_webview_window("notch");
+                            if fs {
+                                let _ = w.hide();
+                                if let Some(n) = &notch {
+                                    let _ = n.hide();
+                                }
+                            } else {
+                                if !*sh2.user_hidden.lock().unwrap() {
+                                    let _ = w.show();
+                                }
+                                if let Some(n) = &notch {
+                                    if !*sh2.notch_off.lock().unwrap() {
+                                        let _ = n.show();
+                                    }
+                                }
+                            }
                         }
                     }
                     #[cfg(not(windows))]
@@ -513,7 +635,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            list_apps, app_icons, launch, reveal, search_files, reindex, media_key, get_dark_mode, set_dark_mode, weather, rates, set_layout, show_dock
+            list_apps, app_icons, launch, reveal, search_files, reindex, media_key, get_dark_mode, set_dark_mode, weather, rates, set_layout, show_dock, get_sys, media_control, set_volume, set_notch
         ])
         .run(tauri::generate_context!())
         .expect("error while running Driftdock");

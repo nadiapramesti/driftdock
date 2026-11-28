@@ -26,6 +26,7 @@ const mock = {
     })),
   }),
   rates: () => { throw new Error('offline preview') },
+  get_sys: () => ({ media: { title: 'Night Drive', artist: 'Mira Sato', app: 'Spotify.exe', playing: true, art: null }, volume: 64, muted: false, battery: 78, charging: false }),
 }
 
 export async function call(cmd, args = {}) {

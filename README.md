@@ -11,9 +11,16 @@ A light, floating dock for Windows 10 and 11. Pin your apps, type to launch anyt
   - calculator (`12*8.5`), currency with daily ECB rates (`100 usd to idr`), units (`5 km`, `30 c to f`)
   - time in 40+ cities (`time in tokyo`), live weather (`weather`)
   - music and volume (`next`, `play`, `mute`, `volume 40`)
+  - timers (`timer 5m`, `pomodoro`, `stop timer`)
   - Windows dark/light mode (`dark mode`, `light mode`)
   - jump to settings (`wifi settings`, `bluetooth`, `open display`)
   - restyle the dock (`make it teal`, `corner radius 100`, `dock size 80`, `reset`)
+- **Notch** at the top of the screen, like a phone's island:
+  - now playing from any app that uses Windows media controls (Spotify, YouTube in the browser, VLC…) with cover art, play/pause/next and a real volume slider
+  - timers and Pomodoro (`timer 10m`, `pomodoro`, `stop timer`), counting down live
+  - your next agenda item, with a reminder 10 minutes before
+  - quick alerts when volume, charger, low battery or internet changes
+  - turn it off in Settings if you don't want it
 - **Quick actions**: real dark-mode switch plus one-click jumps to Wi‑Fi, Bluetooth, Night light, Display, Sound, Battery, Screenshot and more.
 - **Calendar**: a local agenda for meetings, payouts and renewals, with weekly, monthly and yearly repeats.
 - **Limit timers**: track any capped plan or quota and see when it resets.

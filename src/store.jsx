@@ -4,7 +4,7 @@ import { call } from './native.js'
 
 export const DEFAULTS = {
   accent: DEFAULT_ACCENT, radius: 42, size: 100, city: 'jakarta',
-  widgets: { media: true, volume: true, session: true, weather: true },
+  widgets: { media: true, volume: true, session: true, weather: true }, notch: true,
   pinned: null, // filled with sensible defaults on first run
   quick: ['dark', 'wifi', 'bluetooth', 'nightlight', 'focus', 'display', 'sound', 'battery', 'snip'],
   events: [], limits: null,
@@ -75,6 +75,8 @@ export function StoreProvider({ children }) {
   }, [notify])
 
   const media = useCallback(async (seq) => {
+    if (['play', 'next', 'prev'].includes(seq[0]) && seq.length === 1) { try { await call('media_control', { action: seq[0] }) } catch {} return }
+    if (seq[0] === 'mute' && seq.length === 1) { try { await call('set_volume', { level: null }) } catch {} return }
     for (let i = 0; i < seq.length; i++) {
       const key = seq[i]; const times = typeof seq[i + 1] === 'number' ? seq[++i] : 1
       try { await call('media_key', { key, times }) } catch { try { await call('media_key', { key, times }) } catch {} }
